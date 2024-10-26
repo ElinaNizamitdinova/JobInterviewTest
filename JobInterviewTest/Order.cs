@@ -29,6 +29,10 @@ namespace JobInterviewTest
             District = district;
             DeliveryTime = deliveryTime;
         }
+        public override string ToString()
+        {
+            return $"{OrderNumber};{Weight};{District};{DeliveryTime}";
+        }
     }
 
 

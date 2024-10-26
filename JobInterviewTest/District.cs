@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace JobInterviewTest
 {
-    internal class District
+    public enum District
     {
+
     }
 }
