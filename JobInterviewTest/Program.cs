@@ -99,8 +99,6 @@ namespace JobInterviewTest
 
         private static List<Order> FilterOrders(List<Order> orders, string cityDistrict, string firstDeliveryDateTime)
         {
-            try
-            {
                 var tmp = orders.Where(order =>
                 order.DeliveryTime.Minute < 30 &&
                 order.District.ToLower() == cityDistrict.ToLower() &&
@@ -108,12 +106,6 @@ namespace JobInterviewTest
                 ).ToList();
 
                 return tmp;
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Ошибка при фильтрации заказов: " + e.Message);
-                return new List<Order>();
-            }
         }
         private static void Writer(string filePath, string text )
         {
