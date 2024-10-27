@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using Microsoft.VisualBasic.FileIO;
+using System.Globalization;
 
 namespace JobInterviewTest
 {
@@ -9,6 +10,7 @@ namespace JobInterviewTest
             if (ValidateArgs(args))
             {
                 Console.WriteLine("Некорректный формат аргументов");
+                return;
             }
 
             string cityDistrict = args[0];
@@ -21,12 +23,22 @@ namespace JobInterviewTest
             Log(deliveryLog, "Чтение данных из файла " + inputFile);
 
 
-            List<Order> orders = new List<Order>();
-            foreach (string line in lines)
-            {
 
-                orders.Add(ParseLine(line));
-            }
+            var fileStream = new FileStream(inputFile, FileMode.Open);
+            var reader = new StreamReader(fileStream);
+            var csvReader = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";" });
+
+            var records = csvReader.GetRecords<Order>().ToList();
+
+            //List<Order> orders = new List<Order>();
+            //foreach (string line in lines)
+            //{
+            //    var order = ParseLine(line);
+            //    if (order is not null)
+            //    { 
+            //        orders.Add(ParseLine(line)); 
+            //    }
+            //}
 
 
             var filteredOrders = FilterOrders(orders, cityDistrict, firstDeliveryDateTime);
@@ -37,7 +49,7 @@ namespace JobInterviewTest
             {
                 Writer(deliveryOrder, order.ToString());
             }
-            
+
             Log(deliveryLog, "Запись результатов фильтрации заказов для доставки в конкретный район города в ближайшие полчаса" + inputFile);
 
 
@@ -52,7 +64,7 @@ namespace JobInterviewTest
                 Console.WriteLine("Аргументы не найдены");
                 result = false;
             }
-            else if (args.Length == 4)
+            else if (args.Length < 5)
             {
                 Console.WriteLine("Недостаточно аргументов командной строки");
                 result = false;
@@ -66,11 +78,8 @@ namespace JobInterviewTest
         }
         private static bool PathCheck(string path)
         {
-            if (!File.Exists(path))
-            {
-                return false;
-            }
-            return true;
+            return File.Exists(path);
+
         }
 
         private static void Log(string file, string message)
@@ -82,36 +91,49 @@ namespace JobInterviewTest
         {
             try
             {
-                Order order = new Order();
-                order.OrderNumber = int.Parse(line.Split(';')[0]);
-                order.Weight = double.Parse(line.Split(';')[1]);
-                order.District = line.Split(';')[2];
-                order.DeliveryTime = DateTime.Parse(line.Split(';')[3]);
+                var orderElements = line.Split(';');
+                Order order = new Order
+                {
+                    OrderNumber = int.Parse(orderElements[0]),
+                    Weight = int.Parse(orderElements[1]),
+                    District = orderElements[2],
+                    DeliveryTime = DateTime.Parse(orderElements[3]),
+
+                };
+
                 return order;
             }
-            catch
+            catch (Exception e)
             {
-                Console.WriteLine("Фаил содеежит данные неверного типа");
-                return new Order();
+                Console.WriteLine("Фаил содрежит данные неверного типа");
+                return null;
             }
 
         }
 
         private static List<Order> FilterOrders(List<Order> orders, string cityDistrict, string firstDeliveryDateTime)
         {
-                var tmp = orders.Where(order =>
-                order.DeliveryTime.Minute < 30 &&
-                order.District.ToLower() == cityDistrict.ToLower() &&
-                order.DeliveryTime >= DateTime.Parse(firstDeliveryDateTime)
-                ).ToList();
+            var filterOrder = orders.Where(order =>
+            order.DeliveryTime.Minute < 30 &&
+            order.District.ToLower() == cityDistrict.ToLower() &&
+            order.DeliveryTime >= DateTime.Parse(firstDeliveryDateTime)
+            ).ToList();
 
-                return tmp;
+            return filterOrder;
         }
-        private static void Writer(string filePath, string text )
+        private static void Writer(string filePath, string text, bool needToCreateNewFile)
         {
-            using (StreamWriter writer = new StreamWriter(filePath, true))
+            
+            if (needToCreateNewFile)
             {
-                writer.WriteLine(text);
+                using (StreamWriter writer = new StreamWriter(filePath, true))
+                {
+                    writer.WriteLine(text);
+                }
+            }
+            else
+            {
+
             }
         }
     }
