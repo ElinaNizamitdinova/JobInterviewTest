@@ -1,142 +1,177 @@
-﻿using Microsoft.VisualBasic.FileIO;
+﻿using CommandLine;
+using JobInterviewTest;
+using Microsoft.VisualBasic.FileIO;
+using System.Diagnostics;
 using System.Globalization;
+using System.Configuration;
 
-namespace JobInterviewTest
+namespace DeliveryService
 {
-    internal class Program
+    class Program
     {
-        static void Main(string[] args)
+
+        static async Task<int> Main(string[] args)
         {
-            if (ValidateArgs(args))
-            {
-                Console.WriteLine("Некорректный формат аргументов");
-                return;
-            }
 
-            string cityDistrict = args[0];
-            string firstDeliveryDateTime = args[1];
-            string deliveryLog = args[2];
-            string deliveryOrder = args[3];
-            string inputFile = args[4];
+            var parserResult = Parser.Default.ParseArguments<Options>(args);
 
-            string[] lines = File.ReadAllLines(inputFile);
-            Log(deliveryLog, "Чтение данных из файла " + inputFile);
+            return await parserResult.MapResult(
+             async options =>
+             {
 
+                 try
+                 {
+                    
+                     DateTime firstDeliveryTime;
+                     if (!DateTime.TryParseExact(options.firstDeliveryTimeStr, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out firstDeliveryTime))
+                     {
+                         Log(options.logFilePath, "Некорректное время первой доставки");
+                         return 0;
+                     }
 
+                  
+                     string orderPath = ConfigurationManager.AppSettings["Orders"];
 
-            var fileStream = new FileStream(inputFile, FileMode.Open);
-            var reader = new StreamReader(fileStream);
-            var csvReader = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";" });
-
-            var records = csvReader.GetRecords<Order>().ToList();
-
-            //List<Order> orders = new List<Order>();
-            //foreach (string line in lines)
-            //{
-            //    var order = ParseLine(line);
-            //    if (order is not null)
-            //    { 
-            //        orders.Add(ParseLine(line)); 
-            //    }
-            //}
+                     // Загрузка и валидация данных
+                     List<Order> orders = LoadOrders(orderPath,options.logFilePath);
 
 
-            var filteredOrders = FilterOrders(orders, cityDistrict, firstDeliveryDateTime);
-            Log(deliveryLog, "Фильтрация заказов для района " + cityDistrict + " и времени " + firstDeliveryDateTime + " успешно завершена.");
+                     // Фильтрация заказов
 
+                     List<Order> filteredOrders = FilterOrders(orders, options.cityDistrict, firstDeliveryTime);
 
-            foreach (var order in filteredOrders)
-            {
-                Writer(deliveryOrder, order.ToString());
-            }
+                     // Запись результата
+                     SaveFilteredOrders(filteredOrders, options.resultFilePath, options.logFilePath);
 
-            Log(deliveryLog, "Запись результатов фильтрации заказов для доставки в конкретный район города в ближайшие полчаса" + inputFile);
+                     return 0;
+                 }
+                 catch (Exception ex)
+                 {
 
+                     return 1;
+                 }
+                 finally
+                 {
 
-
-
-        }
-        private static bool ValidateArgs(string[] args)
-        {
-            bool result;
-            if (args.Length == 0)
-            {
-                Console.WriteLine("Аргументы не найдены");
-                result = false;
-            }
-            else if (args.Length < 5)
-            {
-                Console.WriteLine("Недостаточно аргументов командной строки");
-                result = false;
-            }
-            else
-            {
-                DateTime isTrue;
-                result = ((!DateTime.TryParse(args[1], out isTrue)) || (PathCheck(args[2])) || (PathCheck(args[3])) || (PathCheck(args[4])));
-            }
-            return result;
-        }
-        private static bool PathCheck(string path)
-        {
-            return File.Exists(path);
+                 }
+             },
+             errs => Task.FromResult(1));
 
         }
 
-        private static void Log(string file, string message)
+        static void Test(string str)
         {
-            Writer(file, message);
+            Debug.WriteLine(str);
         }
 
-        private static Order ParseLine(string line)
+        static string GetArgument(string[] args, string name, string defaultValue)
+        {
+            foreach (string arg in args)
+            {
+                if (arg.StartsWith(name))
+                {
+                    return arg.Split('-')[1];
+                }
+            }
+            return defaultValue;
+
+        }
+
+        static void Log(string logFilePath, string message)
+        {
+            // Проверка и создание файла логов, если его нет
+            if (!File.Exists(logFilePath))
+            {
+                using (FileStream fs = File.Create(logFilePath))
+                {
+                    // Файл создан, можно закрыть FileStream
+                }
+            }
+
+            // Запись сообщения в лог
+            using (StreamWriter logFile = new StreamWriter(logFilePath, true))
+            {
+                logFile.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}");
+            }
+        }
+
+        static List<Order> LoadOrders(string filePath, string logFilePath)
+        {
+            List<Order> orders = new List<Order>();
+            try
+            {
+                using (TextFieldParser parser = new TextFieldParser(filePath))
+                {
+                    parser.TextFieldType = FieldType.Delimited;
+                    parser.SetDelimiters(";");
+
+                    // Пропускаем заголовок
+                    parser.ReadLine();
+
+                    while (!parser.EndOfData)
+                    {
+                        string[]? fields = parser.ReadFields();
+                        if (fields.Length == 4 && ValidateOrderData(fields, logFilePath))
+                        {
+                            orders.Add(new Order
+                            {
+                                OrderId = fields[0],
+                                Weight = double.Parse(fields[1]),
+                                District = fields[2],
+                                DeliveryTime = DateTime.ParseExact(fields[3], "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log(logFilePath, $"Ошибка загрузки заказов: {ex.Message}");
+            }
+            return orders;
+        }
+
+        static bool ValidateOrderData(string[] data, string logFilePath)
+        {
+            bool isValid = int.TryParse(data[0], out _) &&
+                           double.TryParse(data[1], out _) &&
+                           DateTime.TryParseExact(data[3], "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+
+            if (!isValid)
+            {
+                Log(logFilePath, $"Ошибка валидации данных: {string.Join(", ", data)}");
+            }
+            return isValid;
+        }
+
+        static List<Order> FilterOrders(List<Order> orders, string district, DateTime firstDeliveryTime)
+        {
+            DateTime endTime = firstDeliveryTime.AddMinutes(30);
+            List<Order> filteredOrders = orders.Where(order => order.District == district &&
+                                         order.DeliveryTime >= firstDeliveryTime &&
+                                         order.DeliveryTime <= endTime).ToList();
+            return filteredOrders;
+        }
+
+        static void SaveFilteredOrders(List<Order> orders, string resultFilePath, string logFilePath)
         {
             try
             {
-                var orderElements = line.Split(';');
-                Order order = new Order
+                using (StreamWriter writer = new StreamWriter(resultFilePath))
                 {
-                    OrderNumber = int.Parse(orderElements[0]),
-                    Weight = int.Parse(orderElements[1]),
-                    District = orderElements[2],
-                    DeliveryTime = DateTime.Parse(orderElements[3]),
-
-                };
-
-                return order;
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Фаил содрежит данные неверного типа");
-                return null;
-            }
-
-        }
-
-        private static List<Order> FilterOrders(List<Order> orders, string cityDistrict, string firstDeliveryDateTime)
-        {
-            var filterOrder = orders.Where(order =>
-            order.DeliveryTime.Minute < 30 &&
-            order.District.ToLower() == cityDistrict.ToLower() &&
-            order.DeliveryTime >= DateTime.Parse(firstDeliveryDateTime)
-            ).ToList();
-
-            return filterOrder;
-        }
-        private static void Writer(string filePath, string text, bool needToCreateNewFile)
-        {
-            
-            if (needToCreateNewFile)
-            {
-                using (StreamWriter writer = new StreamWriter(filePath, true))
-                {
-                    writer.WriteLine(text);
+                    foreach (var order in orders)
+                    {
+                        writer.WriteLine($"{order.OrderId}, {order.Weight}, {order.District}, {order.DeliveryTime:yyyy-MM-dd HH:mm:ss}");
+                    }
                 }
+                Log(logFilePath, $"Сохранены отфильтрованные заказы: {orders.Count}");
             }
-            else
+            catch (Exception ex)
             {
-
+                Log(logFilePath, $"Ошибка записи результатов: {ex.Message}");
             }
         }
     }
+
+
 }
-
-

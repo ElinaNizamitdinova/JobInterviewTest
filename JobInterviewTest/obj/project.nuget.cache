@@ -1,8 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "hNqWjmvsyHmwB2nihQOfdJWo21aH1HxtNRsy7AKpaFkFqWFAb67NMPrfZ61qNZnkc3l/CDLiA/lmrQRAezG9wg==",
+  "dgSpecHash": "tshRwo3HeoRaWLfJInpbfPB7JboksBkDY4V8lMycbwEtWAoAxpRFppXKE2X9SWsX2xYKhm1JnNW+cXCQ/cx6rg==",
   "success": true,
   "projectFilePath": "E:\\elina\\JobInterviewTest\\JobInterviewTest\\JobInterviewTest.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\Girls\\.nuget\\packages\\commandlineparser\\2.9.1\\commandlineparser.2.9.1.nupkg.sha512",
+    "C:\\Users\\Girls\\.nuget\\packages\\system.configuration.configurationmanager\\8.0.1\\system.configuration.configurationmanager.8.0.1.nupkg.sha512",
+    "C:\\Users\\Girls\\.nuget\\packages\\system.diagnostics.eventlog\\8.0.1\\system.diagnostics.eventlog.8.0.1.nupkg.sha512",
+    "C:\\Users\\Girls\\.nuget\\packages\\system.security.cryptography.protecteddata\\8.0.0\\system.security.cryptography.protecteddata.8.0.0.nupkg.sha512"
+  ],
   "logs": []
 }
