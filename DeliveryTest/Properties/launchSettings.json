@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "DeliveryTest": {
-      "commandName": "Project",
-      "commandLineArgs": "-d Central -t \"2024-10-28 13:10:00\" -l E:\\elina\\JobInterviewTest\\JobInterviewTest\\delivery_log.txt -r E:\\elina\\JobInterviewTest\\JobInterviewTest\\filtered_orders.txt"
-    }
-  }
-}
